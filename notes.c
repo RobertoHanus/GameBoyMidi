@@ -60,7 +60,6 @@ void FMSound_off()
 char notes_universe[12][3]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
 
 int note_num(char *note_name)
-{
    for(int i=0;i<12;i++)
    {
       int result=c_strcmp(notes_universe[i],note_name);
@@ -74,9 +73,9 @@ char *note_name(int note_num)
    return notes_universe[note_num];
 }
 
-unsigned int note_freq(int note_num, int note_oct)
+int note_freq(int note_num, int note_oct)
 {
-	unsigned int freq[][11] = {
+	int freq[][11] = {
 	{0,88,1034,1541,1797,1923,1986,0,0,0,0},
 	{0,165,1090,1571,1811,1929,1989,0,0,0,0},
 	{0,263,1147,1598,1822,1936,1993,0,0,0,0},
@@ -96,15 +95,25 @@ unsigned int note_freq(int note_num, int note_oct)
 void main()
 {                  
     FMSoundInit();
+    int i=500;  
     while(1)
     {
         switch(joypad())
         {
             case J_RIGHT:
-                FMSound_on(note_freq(note_num("C"),3));
+                FMSound_on(i);
                 delay(500);     
                 FMSound_off(); 
                 break;
+            case J_UP:
+                i++;
+                printf("\n%d",i);
+                break;
+            case J_DOWN:
+                i--;
+                printf("\n%d",i);
+                break;
+
         }
     }
 }
