@@ -8,6 +8,8 @@
 #define TRUE 1
 #define FALSE 0
 #define NULL 0
+#define ON 1
+#define OFF 0
 
 unsigned char c_strlen(char *s)
 {
@@ -39,12 +41,12 @@ char c_strcmp(char *s1, char *s2)
 void FMSoundInit()
 {
     NR52_REG = 0x80;
-    NR51_REG = 0x11;
+    NR51_REG = 0x33;
     NR50_REG = 0x77;
-    NR10_REG = 0x00;
+	NR10_REG = 0x00;
 }
 
-void FMSound_on(unsigned int freq)
+void FMSound_on_channel_1(unsigned int freq)
 {
     NR11_REG = 0x10;
     NR12_REG = 0xF0;
@@ -52,10 +54,25 @@ void FMSound_on(unsigned int freq)
     NR14_REG = ((freq >> 8) & 0x07) | 0x80;
 }
 
-void FMSound_off()
+void FMSound_on_channel_2(unsigned int freq)
+{
+    NR21_REG = 0x10;
+    NR22_REG = 0xF0;
+    NR23_REG = freq & 0xFF;
+    NR24_REG = ((freq >> 8) & 0x07) | 0x80;
+}
+
+
+void FMSound_off_channel_1()
 {
     NR12_REG = 0x00;
 }
+
+void FMSound_off_channel_2()
+{
+    NR22_REG = 0x00;
+}
+
 
 char notes_universe[12][3]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
 
@@ -107,13 +124,71 @@ void midi_note(struct full_note_des *note, int midi_note_num)
    note->oct = note_oct;
 }
 
+struct note_register {
+  char *note;
+  unsigned char oct;
+  unsigned char on;
+};
+
+struct note_register channel[2];
+
+char current_note_channel=0;
+
+void play_note(char *note, unsigned char oct)
+{
+      channel[current_note_channel].note=note;
+      channel[current_note_channel].oct=oct;
+      channel[current_note_channel].on=ON;
+	  switch(current_note_channel)
+	  {
+		case 0:
+		  	FMSound_on_channel_1(note_freq(note_num(note),oct));
+			printf("\nPlay channel 1");
+			current_note_channel=1;
+			break;
+		case 1:
+		  	FMSound_on_channel_2(note_freq(note_num(note),oct));
+			printf("\nPlay channel 2");
+			current_note_channel=0;
+			break;
+	  }
+}
+
+void mute_note(char *note, unsigned char oct)
+{
+  for(int i=0;i<2;i++)
+  {
+    if(*channel[i].note == *note && channel[i].oct == oct && channel[i].on == ON)
+    {
+      channel[i].on=OFF;
+	  switch(i)
+	  {
+		case 0:
+			FMSound_off_channel_1();
+			printf("\nMute channel 1");
+			break;
+		case 1:
+			FMSound_off_channel_2();
+			printf("\nMute channel 2");
+	  }
+    }
+  }
+}
 
 void midi_note_on(int midi_note_num)
 {
     struct full_note_des note;
     midi_note(&note, midi_note_num);
-    FMSound_on(note_freq(note_num(note.name),note.oct));
+    play_note(note.name, note.oct);
 }
+
+void midi_note_off(int midi_note_num)
+{
+    struct full_note_des note;
+	midi_note(&note, midi_note_num);
+    mute_note(note.name,note.oct);
+}
+
 
 struct midi_header_chunk{
    char name[4];
@@ -152,6 +227,17 @@ void c_memcpy(unsigned char *destiny, unsigned char *origin, unsigned int size)
 void main()
 {                  
     FMSoundInit();
+/*
+	midi_note_on(25);
+	delay(1000);
+	midi_note_on(52);
+	delay(1000);
+	midi_note_on(15);
+	delay(1000);
+	midi_note_off(15);
+	delay(1000);
+	midi_note_off(52);
+	delay(10000);*/
 
     unsigned int index = 0;
 
@@ -183,8 +269,6 @@ void main()
     unsigned char tempo[4];
     unsigned long int u_seconds_per_ticks=0;
     unsigned long int *next_event=(unsigned long int *)delta_time;
-
-    unsigned char last_note;
 
     int i=0;
     do
@@ -256,7 +340,7 @@ void main()
 
 
 
-      printf("\n%x",*((unsigned long int*)delta_time));
+      // printf("\n%x",*((unsigned long int*)delta_time));
 
 
 
@@ -353,10 +437,7 @@ void main()
 	 }
       }
 
-
-
-      delay(((*next_event) * u_seconds_per_ticks) / 40000l);
-
+      delay(((*next_event) * u_seconds_per_ticks) / 25000);
 
       // Midi events commands
       switch(midi_events[i]>>4)
@@ -364,12 +445,11 @@ void main()
 	 case 0x9:
 	    i++;
 	    midi_note_on(midi_events[i]);
-        last_note = midi_events[i];
 	    i+=2;
 	    break;
 	 case 0x8:
 	    i++;
-	    if(midi_events[i]==last_note) FMSound_off();
+	    midi_note_off(midi_events[i]);
 	    i+=2;
 	    break;
 	 case 0xA:
