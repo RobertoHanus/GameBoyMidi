@@ -98,16 +98,19 @@ struct full_note_des {
    int oct;
 };
 
-void midi_note(struct full_note_des *note, int midi_note_num)
+full_note_des midi_note(int midi_note_num)
 {
+   full_note_des note;
+
    int note_oct = midi_note_num / 12;
    int note_num = midi_note_num - note_oct * 12;
 
-   note->name = note_name(note_num);
-   note->oct = note_oct;
+   note.name = note_name(note_num);
+   note.oct = note_oct;
+
+   return note;
 }
 
-/*
 void midi_note_on(int midi_note_num)
 {
     full_note_des note=midi_note(midi_note_num);
@@ -145,21 +148,17 @@ void c_memcpy(unsigned char *destiny, unsigned char *origin, unsigned int size)
     {
         destiny[i]=origin[i];
     }
-}*/
+}
 
 void main()
 {                  
     FMSoundInit();
 
-/*
-    struct midi_header_chunk header;
+    //midi_header_chunk header;
 
-    c_memcpy(&header,raw_midi,sizeof(midi_header_chunk));
+    //c_memcpy(&header,raw_midi,sizeof(midi_header_chunk));
 
     printf("%s", header.name);
-*/
-
-
 
 
     FMSound_on(note_freq(note_num("C"),4));
