@@ -154,15 +154,11 @@ void play_note(char *note, unsigned char oct)
 	  }
 }
 
-void mute_note(char *note, unsigned char oct)
+void mute_channel(char i)
 {
-  for(int i=0;i<2;i++)
-  {
-    if(*channel[i].note == *note && channel[i].oct == oct && channel[i].on == ON)
-    {
-      channel[i].on=OFF;
-	  switch(i)
-	  {
+	channel[i].on=OFF;
+	switch(i)
+	{
 		case 0:
 			FMSound_off_channel_1();
 			printf("\nMute channel 1");
@@ -170,10 +166,19 @@ void mute_note(char *note, unsigned char oct)
 		case 1:
 			FMSound_off_channel_2();
 			printf("\nMute channel 2");
-	  }
-    }
-  }
+	}	
 }
+
+void mute_note(char *note, unsigned char oct)
+{
+	for(char i=0;i<2;i++)
+	{
+		if(c_strcmp(channel[i].note,note)==EQUAL && channel[i].oct == oct && channel[i].on == ON) 
+			mute_channel(i);
+	}
+}
+
+
 
 void midi_note_on(int midi_note_num)
 {
@@ -227,17 +232,6 @@ void c_memcpy(unsigned char *destiny, unsigned char *origin, unsigned int size)
 void main()
 {                  
     FMSoundInit();
-/*
-	midi_note_on(25);
-	delay(1000);
-	midi_note_on(52);
-	delay(1000);
-	midi_note_on(15);
-	delay(1000);
-	midi_note_off(15);
-	delay(1000);
-	midi_note_off(52);
-	delay(10000);*/
 
     unsigned int index = 0;
 
