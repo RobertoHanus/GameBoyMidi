@@ -355,7 +355,7 @@ void main()
 
 
 
-      delay(((*next_event) * u_seconds_per_ticks) / 32000);
+      delay(((*next_event) * u_seconds_per_ticks) / 40000l);
 
 
       // Midi events commands
