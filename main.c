@@ -107,11 +107,12 @@ void midi_note(struct full_note_des *note, int midi_note_num)
    note->oct = note_oct;
 }
 
-/*
+
 void midi_note_on(int midi_note_num)
 {
-    full_note_des note=midi_note(midi_note_num);
-    FMSound_on(note.name,note.oct);
+    struct full_note_des note;
+    midi_note(&note, midi_note_num);
+    FMSound_on(note_freq(note_num(note.name),note.oct));
 }
 
 struct midi_header_chunk{
@@ -121,6 +122,7 @@ struct midi_header_chunk{
    unsigned char tracks[2]; //Little endian by default
    unsigned char ticks[2];  //Little endian by default
 };
+
 
 void little_endian_to_big_endian(unsigned char *p, int length)
 {
@@ -145,25 +147,253 @@ void c_memcpy(unsigned char *destiny, unsigned char *origin, unsigned int size)
     {
         destiny[i]=origin[i];
     }
-}*/
+}
 
 void main()
 {                  
     FMSoundInit();
 
-/*
+    unsigned int index = 0;
+
     struct midi_header_chunk header;
 
-    c_memcpy(&header,raw_midi,sizeof(midi_header_chunk));
-
-    printf("%s", header.name);
-*/
+    c_memcpy((unsigned char *)&header,&raw_midi[index],sizeof(header));
+    index+=sizeof(header);
 
 
+    little_endian_to_big_endian(header.length,sizeof(header.length));
+    little_endian_to_big_endian(header.format,sizeof(header.format));
+    little_endian_to_big_endian(header.tracks,sizeof(header.tracks));
+    little_endian_to_big_endian(header.ticks,sizeof(header.ticks));
+
+    struct midi_track_header_chunk track_header;
+
+    c_memcpy((unsigned char *)&track_header,&raw_midi[index],sizeof(track_header));
+    index+=sizeof(track_header);
+
+    little_endian_to_big_endian(track_header.length,sizeof(track_header.length));
+
+    unsigned int midi_events_length=*((long int*)track_header.length);
+
+    unsigned char *midi_events = &raw_midi[index];
+
+    unsigned char delta_time[4];
+    unsigned char delta_data[4];
+
+    unsigned char tempo[4];
+    unsigned long int u_seconds_per_ticks=0;
+    unsigned long int *next_event=(unsigned long int *)delta_time;
+
+    unsigned char last_note;
+
+    int i=0;
+    do
+   {
+      int j=0;
+      *((unsigned long int *)delta_data)=0l;
+      *((unsigned long int *)delta_time)=0l;
+
+      while(1)
+      {
+	 if((midi_events[i] & 0x80) == 0)
+	 {
+	    delta_data[j] = midi_events[i];
+	    i++;
+	    j++;
+	    break;
+	 }
+	 else
+	 {
+	    delta_data[j] = midi_events[i];
+	 }
+	 i++;
+	 j++;
+
+	 if(j>4)
+	 {
+	    printf("\nError: delta time too big");
+	    return;
+	 }
+      }
 
 
-    FMSound_on(note_freq(note_num("C"),4));
-    delay(500);     
-    FMSound_off(); 
+      switch(j)
+      {
+	 case 1:
+	    delta_time[0] = delta_data[0] & 0x7F;
+	    break;
+	 case 2:
+	    little_endian_to_big_endian(delta_data,j);
+	    delta_time[0] = delta_data[0] & 0x7F;
+	    delta_time[0] = delta_time[0] | delta_data[1] << 7;
+	    delta_time[1] = delta_data[1] & 0x7F;
+	    delta_time[1] = delta_time[1] >> 1;
+	    break;
+	 case 3:
+	    little_endian_to_big_endian(delta_data,j);
+	    delta_time[0] = delta_data[0] & 0x7F;
+	    delta_time[0] = delta_time[0] | delta_data[1] << 7;
+	    delta_time[1] = delta_data[1] & 0x7F;
+	    delta_time[1] = delta_time[1] >> 1;
+	    delta_time[1] = delta_time[1] | delta_data[2] << 6;
+	    delta_time[2] = delta_data[2] & 0x7F;
+	    delta_time[2] = delta_time[2] >> 2;
+	    break;
+	 case 4:
+	    little_endian_to_big_endian(delta_data,j);
+	    delta_time[0] = delta_data[0] & 0x7F;
+	    delta_time[0] = delta_time[0] | delta_data[1] << 7;
+	    delta_time[1] = delta_data[1] & 0x7F;
+	    delta_time[1] = delta_time[1] >> 1;
+	    delta_time[1] = delta_time[1] | delta_data[2] << 6;
+	    delta_time[2] = delta_data[2] & 0x7F;
+	    delta_time[2] = delta_time[2] >> 2;
+	    delta_time[2] = delta_time[2] | delta_data[3] << 5;
+	    delta_time[3] = delta_data[3] & 0x7F;
+	    delta_time[3] = delta_time[3] >> 3;
+	    break;
+      }
 
+
+
+      printf("\n%x",*((unsigned long int*)delta_time));
+
+
+
+      // Midi meta events
+      switch(midi_events[i])
+      {
+	 case 0xFF:
+	 {
+	    i++;
+	    switch(midi_events[i])
+	    {
+	       case 0x00:
+	       {
+		  i++;
+		  int sequence_length=(int)midi_events[i];
+		  i+= sequence_length+1;
+		  break;
+	       }
+
+	       case 0x01:
+	       {
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       }
+	       case 0x02:
+	       {
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       }
+	       case 0x03:
+	       {
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       }
+	       case 0x04:
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       case 0x05:
+	       {
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       }
+	       case 0x06:
+	       {
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       }
+	       case 0x07:
+	       {
+		  i++;
+		  int text_length=(int)midi_events[i];
+		  i+= text_length+1;
+		  break;
+	       }
+	       case 0x58:
+		  i+=6;
+		  break;
+	       case 0x51:
+		  i++;
+		  tempo[3]=0;
+		  i++;
+		  tempo[2]=midi_events[i];
+		  i++;
+		  tempo[1]=midi_events[i];
+		  i++;
+		  tempo[0]=midi_events[i];
+		  i++;
+		  u_seconds_per_ticks=(*((unsigned long int*)tempo))/(*((unsigned int *)header.ticks));
+		  break;
+	       case 0x59:
+		  i+=4;
+		  break;
+	       case 0x7F:
+		  i++;
+		  int data_length=(int)midi_events[i];
+		  i+= data_length+1;
+		  break;
+	       case 0x2F:
+		  return;
+	    }
+	    continue;
+	 }
+      }
+
+
+
+      delay(((*next_event) * u_seconds_per_ticks) / 32000);
+
+
+      // Midi events commands
+      switch(midi_events[i]>>4)
+      {
+	 case 0x9:
+	    i++;
+	    midi_note_on(midi_events[i]);
+        last_note = midi_events[i];
+	    i+=2;
+	    break;
+	 case 0x8:
+	    i++;
+	    if(midi_events[i]==last_note) FMSound_off();
+	    i+=2;
+	    break;
+	 case 0xA:
+	    i++;
+	    i+=2;
+	    break;
+	 case 0xB:
+	    i++;
+	    i+=2;
+	    break;
+	 case 0xC:
+	    i++;
+	    i++;
+	    break;
+	 case 0xD:
+	    i++;
+	    i++;
+	    break;
+	 case 0xE:
+	    i++;
+	    i+=2;
+	    break;
+      }
+
+
+   } while(i < midi_events_length);
 }
